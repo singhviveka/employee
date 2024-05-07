@@ -1,9 +1,63 @@
+package main
+
 import (
+	"sync"
 	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
 )
+
+type Employee struct {
+	ID       int     `json:"id"`
+	Name     string  `json:"name"`
+	Position string  `json:"position"`
+	Salary   float64 `json:"salary"`
+}
+
+// EmployeeStore holds employees and necessary synchronization primitives
+type EmployeeStore struct {
+	sync.RWMutex
+	Employees map[int]Employee
+	NextID    int
+}
+
+func (store *EmployeeStore) CreateEmployee(emp Employee) int {
+	store.Lock()
+	defer store.Unlock()
+	emp.ID = store.NextID
+	store.Employees[store.NextID] = emp
+	store.NextID++
+	return emp.ID
+}
+
+func (store *EmployeeStore) GetEmployeeByID(id int) (Employee, bool) {
+	store.RLock()
+	defer store.RUnlock()
+	emp, exists := store.Employees[id]
+	return emp, exists
+}
+
+func (store *EmployeeStore) UpdateEmployee(id int, emp Employee) bool {
+	store.Lock()
+	defer store.Unlock()
+	if _, exists := store.Employees[id]; exists {
+		emp.ID = id
+		store.Employees[id] = emp
+		return true
+	}
+	return false
+}
+
+func (store *EmployeeStore) DeleteEmployee(id int) bool {
+	store.Lock()
+	defer store.Unlock()
+	if _, exists := store.Employees[id]; exists {
+		delete(store.Employees, id)
+		return true
+	}
+	return false
+}
 
 func main() {
 	store := &EmployeeStore{Employees: make(map[int]Employee), NextID: 1}
@@ -49,3 +103,5 @@ func main() {
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
+
+
